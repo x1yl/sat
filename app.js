@@ -15,6 +15,7 @@
     filtered: [],
     index: 0,
     answers: {}, // uid -> { picked, correct }
+    questionOrder: [],
     sidebarCollapsed: false,
     desmosMinimized: false,
     desmosPosition: null,
@@ -52,6 +53,64 @@
       counts[q.domain] = (counts[q.domain] || 0) + 1;
     });
     return counts;
+  }
+
+  function getQuestionOrder() {
+    try {
+      const savedOrder = localStorage.getItem("sat.questionOrder");
+      if (savedOrder) {
+        const parsed = JSON.parse(savedOrder);
+        if (Array.isArray(parsed) && parsed.length === QUESTIONS.length) {
+          const known = new Set(QUESTIONS.map((q) => q.uid));
+          if (parsed.every((uid) => known.has(uid))) {
+            return parsed;
+          }
+        }
+      }
+    } catch {
+      // Ignore storage failures and regenerate below.
+    }
+
+    const shuffled = QUESTIONS.map((q) => q.uid);
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    try {
+      localStorage.setItem("sat.questionOrder", JSON.stringify(shuffled));
+    } catch {
+      // Ignore storage failures.
+    }
+    return shuffled;
+  }
+
+  function getOrderedQuestions(list) {
+    const orderIndex = new Map(state.questionOrder.map((uid, index) => [uid, index]));
+    const originalIndex = new Map(QUESTIONS.map((q, index) => [q.uid, index]));
+
+    const answered = [];
+    const unanswered = [];
+
+    list.forEach((q) => {
+      if (state.answers[q.uid]) answered.push(q);
+      else unanswered.push(q);
+    });
+
+    answered.sort((a, b) => {
+      const aTime = state.answers[a.uid]?.answeredAt || 0;
+      const bTime = state.answers[b.uid]?.answeredAt || 0;
+      if (aTime !== bTime) return aTime - bTime;
+      return (originalIndex.get(a.uid) || 0) - (originalIndex.get(b.uid) || 0);
+    });
+
+    unanswered.sort((a, b) => {
+      const aOrder = orderIndex.get(a.uid) ?? 0;
+      const bOrder = orderIndex.get(b.uid) ?? 0;
+      return aOrder - bOrder;
+    });
+
+    return [...answered, ...unanswered];
   }
 
   function buildFilters() {
@@ -95,17 +154,22 @@
     els.totalCount.textContent = `${QUESTIONS.length} official questions`;
   }
 
-  function applyFilters(resetIndex) {
-    state.filtered = QUESTIONS.filter((q) => {
+  function applyFilters(resetIndex, preserveUid = null) {
+    const currentUid = preserveUid || (!resetIndex ? state.filtered[state.index]?.uid || null : null);
+    const filtered = QUESTIONS.filter((q) => {
       if (state.domainFilter.size && !state.domainFilter.has(q.domain))
         return false;
       if (state.diffFilter.size && !state.diffFilter.has(q.difficulty))
         return false;
       return true;
     });
+    state.filtered = getOrderedQuestions(filtered);
     if (resetIndex) state.index = 0;
-    if (state.index >= state.filtered.length)
-      state.index = Math.max(0, state.filtered.length - 1);
+    if (currentUid) {
+      const nextIndex = state.filtered.findIndex((q) => q.uid === currentUid);
+      if (nextIndex >= 0) state.index = nextIndex;
+    }
+    if (state.index >= state.filtered.length) state.index = Math.max(0, state.filtered.length - 1);
     renderBubbleMap();
     renderQuestion();
     updateScore();
@@ -113,7 +177,8 @@
 
   function renderBubbleMap() {
     const filteredSet = new Set(state.filtered.map((q) => q.uid));
-    els.bubbleMap.innerHTML = QUESTIONS.map((q, i) => {
+    const orderedQuestions = getOrderedQuestions(QUESTIONS);
+    els.bubbleMap.innerHTML = orderedQuestions.map((q, i) => {
       const ans = state.answers[q.uid];
       let cls = "bubble";
       if (ans) cls += ans.correct ? " correct" : " incorrect";
@@ -183,7 +248,11 @@
         const correct = q.has_choices
           ? answer.picked === q.correct
           : checkFreeResponse(answer.picked, q.correct || "");
-        state.answers[uid] = { picked: answer.picked, correct };
+        state.answers[uid] = {
+          picked: answer.picked,
+          correct,
+          answeredAt: typeof answer.answeredAt === "number" ? answer.answeredAt : 0,
+        };
       });
     } catch {
       state.answers = {};
@@ -316,7 +385,7 @@
     }
 
     els.crumb.innerHTML = `${q.domain}<span class="sep">/</span>${q.skill}`;
-    els.qCounter.textContent = `Question ${state.index + 1} of ${state.filtered.length}`;
+    els.qCounter.textContent = `Question Id ${q.uid.split("_").pop()}`;
     els.diffTag.textContent = q.difficulty || "—";
     els.diffTag.className = "diff-tag " + (q.difficulty || "");
 
@@ -453,21 +522,17 @@
   function answerChoice(q, letter) {
     if (state.answers[q.uid]) return;
     const correct = letter === q.correct;
-    state.answers[q.uid] = { picked: letter, correct };
+    state.answers[q.uid] = { picked: letter, correct, answeredAt: Date.now() };
     saveAnswersState();
-    updateScore();
-    renderBubbleMap();
-    renderQuestion();
+    applyFilters(false, q.uid);
   }
 
   function answerFree(q, value) {
     if (state.answers[q.uid]) return;
     const correct = checkFreeResponse(value, q.correct || "");
-    state.answers[q.uid] = { picked: value, correct };
+    state.answers[q.uid] = { picked: value, correct, answeredAt: Date.now() };
     saveAnswersState();
-    updateScore();
-    renderBubbleMap();
-    renderQuestion();
+    applyFilters(false, q.uid);
   }
 
   function lockChoiceHits(q, answer) {
@@ -620,6 +685,7 @@
 
   // init
   els.app = document.querySelector(".app");
+  state.questionOrder = getQuestionOrder();
   loadUiState();
   loadAnswersState();
   syncSidebarState();
