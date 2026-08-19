@@ -19,6 +19,8 @@
     sidebarCollapsed: false,
     desmosMinimized: false,
     desmosPosition: null,
+    excalidrawMinimized: true,
+    excalidrawPosition: null,
   };
 
   const els = {
@@ -45,6 +47,12 @@
     desmosToggle: document.getElementById("desmosToggle"),
     desmosReset: document.getElementById("desmosReset"),
     desmosOpenBtn: document.getElementById("desmosOpenBtn"),
+    excalidrawFloat: document.getElementById("excalidrawFloat"),
+    excalidrawHandle: document.getElementById("excalidrawHandle"),
+    excalidrawBody: document.getElementById("excalidrawBody"),
+    excalidrawToggle: document.getElementById("excalidrawToggle"),
+    excalidrawReset: document.getElementById("excalidrawReset"),
+    excalidrawOpenBtn: document.getElementById("excalidrawOpenBtn"),
   };
 
   function domainCounts() {
@@ -86,7 +94,9 @@
   }
 
   function getOrderedQuestions(list) {
-    const orderIndex = new Map(state.questionOrder.map((uid, index) => [uid, index]));
+    const orderIndex = new Map(
+      state.questionOrder.map((uid, index) => [uid, index]),
+    );
     const originalIndex = new Map(QUESTIONS.map((q, index) => [q.uid, index]));
 
     const answered = [];
@@ -155,7 +165,9 @@
   }
 
   function applyFilters(resetIndex, preserveUid = null) {
-    const currentUid = preserveUid || (!resetIndex ? state.filtered[state.index]?.uid || null : null);
+    const currentUid =
+      preserveUid ||
+      (!resetIndex ? state.filtered[state.index]?.uid || null : null);
     const filtered = QUESTIONS.filter((q) => {
       if (state.domainFilter.size && !state.domainFilter.has(q.domain))
         return false;
@@ -169,7 +181,8 @@
       const nextIndex = state.filtered.findIndex((q) => q.uid === currentUid);
       if (nextIndex >= 0) state.index = nextIndex;
     }
-    if (state.index >= state.filtered.length) state.index = Math.max(0, state.filtered.length - 1);
+    if (state.index >= state.filtered.length)
+      state.index = Math.max(0, state.filtered.length - 1);
     renderBubbleMap();
     renderQuestion();
     updateScore();
@@ -178,14 +191,16 @@
   function renderBubbleMap() {
     const filteredSet = new Set(state.filtered.map((q) => q.uid));
     const orderedQuestions = getOrderedQuestions(QUESTIONS);
-    els.bubbleMap.innerHTML = orderedQuestions.map((q, i) => {
-      const ans = state.answers[q.uid];
-      let cls = "bubble";
-      if (ans) cls += ans.correct ? " correct" : " incorrect";
-      if (!filteredSet.has(q.uid)) cls += " hidden-filter";
-      const globalIdx = i + 1;
-      return `<button class="${cls}" data-uid="${q.uid}" title="Q${globalIdx}: ${q.domain}">${globalIdx}</button>`;
-    }).join("");
+    els.bubbleMap.innerHTML = orderedQuestions
+      .map((q, i) => {
+        const ans = state.answers[q.uid];
+        let cls = "bubble";
+        if (ans) cls += ans.correct ? " correct" : " incorrect";
+        if (!filteredSet.has(q.uid)) cls += " hidden-filter";
+        const globalIdx = i + 1;
+        return `<button class="${cls}" data-uid="${q.uid}" title="Q${globalIdx}: ${q.domain}">${globalIdx}</button>`;
+      })
+      .join("");
 
     els.bubbleMap.querySelectorAll(".bubble").forEach((b) => {
       b.addEventListener("click", () => {
@@ -224,15 +239,31 @@
       const savedSidebar = localStorage.getItem("sat.sidebarCollapsed");
       const savedDesmosMinimized = localStorage.getItem("sat.desmosMinimized");
       const savedDesmosPosition = localStorage.getItem("sat.desmosPosition");
+      const savedExcalidrawMinimized = localStorage.getItem(
+        "sat.excalidrawMinimized",
+      );
+      const savedExcalidrawPosition = localStorage.getItem(
+        "sat.excalidrawPosition",
+      );
       state.sidebarCollapsed = savedSidebar === "true";
       state.desmosMinimized = savedDesmosMinimized === "true";
       state.desmosPosition = savedDesmosPosition
         ? JSON.parse(savedDesmosPosition)
         : null;
+      state.excalidrawMinimized = savedExcalidrawMinimized === "true";
+      state.excalidrawPosition = savedExcalidrawPosition
+        ? JSON.parse(savedExcalidrawPosition)
+        : null;
+      // Default excalidraw to minimized (closed) if never set
+      if (savedExcalidrawMinimized === null) {
+        state.excalidrawMinimized = true;
+      }
     } catch {
       state.sidebarCollapsed = false;
       state.desmosMinimized = false;
       state.desmosPosition = null;
+      state.excalidrawMinimized = true;
+      state.excalidrawPosition = null;
     }
   }
 
@@ -251,7 +282,8 @@
         state.answers[uid] = {
           picked: answer.picked,
           correct,
-          answeredAt: typeof answer.answeredAt === "number" ? answer.answeredAt : 0,
+          answeredAt:
+            typeof answer.answeredAt === "number" ? answer.answeredAt : 0,
         };
       });
     } catch {
@@ -269,6 +301,10 @@
         "sat.desmosMinimized",
         String(state.desmosMinimized),
       );
+      localStorage.setItem(
+        "sat.excalidrawMinimized",
+        String(state.excalidrawMinimized),
+      );
       if (state.desmosPosition) {
         localStorage.setItem(
           "sat.desmosPosition",
@@ -276,6 +312,14 @@
         );
       } else {
         localStorage.removeItem("sat.desmosPosition");
+      }
+      if (state.excalidrawPosition) {
+        localStorage.setItem(
+          "sat.excalidrawPosition",
+          JSON.stringify(state.excalidrawPosition),
+        );
+      } else {
+        localStorage.removeItem("sat.excalidrawPosition");
       }
     } catch {
       // Ignore storage failures.
@@ -330,6 +374,35 @@
     saveUiState();
   }
 
+  function syncExcalidrawState() {
+    els.excalidrawFloat.classList.toggle(
+      "minimized",
+      state.excalidrawMinimized,
+    );
+    els.excalidrawOpenBtn.classList.toggle("show", state.excalidrawMinimized);
+    els.excalidrawToggle.textContent = state.excalidrawMinimized
+      ? "Close"
+      : "Close";
+    els.excalidrawToggle.setAttribute(
+      "aria-label",
+      state.excalidrawMinimized ? "Close whiteboard" : "Close whiteboard",
+    );
+    if (!state.excalidrawMinimized) {
+      if (state.excalidrawPosition) {
+        els.excalidrawFloat.style.left = state.excalidrawPosition.left;
+        els.excalidrawFloat.style.top = state.excalidrawPosition.top;
+        els.excalidrawFloat.style.right = "auto";
+        els.excalidrawFloat.style.bottom = "auto";
+      } else {
+        els.excalidrawFloat.style.left = "";
+        els.excalidrawFloat.style.top = "";
+        els.excalidrawFloat.style.right = "auto";
+        els.excalidrawFloat.style.bottom = "18px";
+      }
+    }
+    saveUiState();
+  }
+
   function clampDesmosPosition(left, top) {
     const rect = els.desmosFloat.getBoundingClientRect();
     const width = rect.width || 360;
@@ -355,6 +428,21 @@
   function openDesmos() {
     state.desmosMinimized = false;
     syncDesmosState();
+  }
+
+  function resetExcalidrawPosition() {
+    state.excalidrawPosition = null;
+    syncExcalidrawState();
+  }
+
+  function closeExcalidraw() {
+    state.excalidrawMinimized = true;
+    syncExcalidrawState();
+  }
+
+  function openExcalidraw() {
+    state.excalidrawMinimized = false;
+    syncExcalidrawState();
   }
 
   function normalizeAnswer(s) {
@@ -429,6 +517,7 @@
           <label for="freInput">Your answer</label>
           <input type="text" id="freInput" placeholder="e.g. 3/4 or 0.75" ${existingAnswer ? "disabled" : ""} value="${existingAnswer ? existingAnswer.picked : ""}">
           <button class="check-btn" id="freCheckBtn" ${existingAnswer ? "disabled" : ""}>Check</button>
+          <button class="number-help-btn" id="numberHelpBtn" type="button"> How to input numbers</button>
         </div>`;
 
     let feedbackHtml = "";
@@ -498,6 +587,44 @@
         if (e.key === "Enter") submit();
       });
     }
+
+    const numberHelpBtn = document.getElementById("numberHelpBtn");
+    const numberHelpPopup = document.getElementById("numberHelpPopup");
+    const numberHelpClose = document.getElementById("numberHelpClose");
+
+    if (numberHelpBtn) {
+      numberHelpBtn.addEventListener("click", () => {
+        numberHelpPopup.classList.add("show");
+      });
+    }
+
+    numberHelpClose.addEventListener("click", () => {
+      numberHelpPopup.classList.remove("show");
+    });
+
+    numberHelpPopup.addEventListener("click", (e) => {
+      if (e.target === numberHelpPopup) {
+        numberHelpPopup.classList.remove("show");
+      }
+    });
+
+    const referenceBtn = document.getElementById("referenceBtn");
+    const referencePopup = document.getElementById("referencePopup");
+    const referenceClose = document.getElementById("referenceClose");
+
+    referenceBtn.addEventListener("click", () => {
+      referencePopup.classList.add("show");
+    });
+
+    referenceClose.addEventListener("click", () => {
+      referencePopup.classList.remove("show");
+    });
+
+    referencePopup.addEventListener("click", (e) => {
+      if (e.target === referencePopup) {
+        referencePopup.classList.remove("show");
+      }
+    });
 
     const nextBtn = document.getElementById("nextBtn");
     if (nextBtn) nextBtn.addEventListener("click", goNext);
@@ -634,12 +761,72 @@
     });
   }
 
+  function setupExcalidrawDrag() {
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let dragging = false;
+
+    const onPointerMove = (event) => {
+      if (!dragging) return;
+      const next = clampExcalidrawPosition(
+        startLeft + (event.clientX - startX),
+        startTop + (event.clientY - startY),
+      );
+      state.excalidrawPosition = next;
+      els.excalidrawFloat.style.left = next.left;
+      els.excalidrawFloat.style.top = next.top;
+      els.excalidrawFloat.style.right = "auto";
+      els.excalidrawFloat.style.bottom = "auto";
+    };
+
+    const stopDragging = () => {
+      if (!dragging) return;
+      dragging = false;
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", stopDragging);
+      document.removeEventListener("pointercancel", stopDragging);
+      saveUiState();
+    };
+
+    els.excalidrawHandle.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("button")) return;
+      dragging = true;
+      const rect = els.excalidrawFloat.getBoundingClientRect();
+      startX = event.clientX;
+      startY = event.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      els.excalidrawHandle.setPointerCapture(event.pointerId);
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", stopDragging);
+      document.addEventListener("pointercancel", stopDragging);
+      event.preventDefault();
+    });
+  }
+
+  function clampExcalidrawPosition(left, top) {
+    const rect = els.excalidrawFloat.getBoundingClientRect();
+    const width = rect.width || 360;
+    const height = rect.height || 320;
+    const maxLeft = Math.max(12, window.innerWidth - width - 12);
+    const maxTop = Math.max(12, window.innerHeight - height - 12);
+    return {
+      left: `${Math.min(Math.max(12, left), maxLeft)}px`,
+      top: `${Math.min(Math.max(12, top), maxTop)}px`,
+    };
+  }
+
   els.prevBtn.addEventListener("click", goPrev);
   els.nextBtnTop.addEventListener("click", goNext);
   els.sidebarToggle.addEventListener("click", toggleSidebar);
   els.desmosToggle.addEventListener("click", closeDesmos);
   els.desmosOpenBtn.addEventListener("click", openDesmos);
   els.desmosReset.addEventListener("click", resetDesmosPosition);
+  els.excalidrawToggle.addEventListener("click", closeExcalidraw);
+  els.excalidrawOpenBtn.addEventListener("click", openExcalidraw);
+  els.excalidrawReset.addEventListener("click", resetExcalidrawPosition);
 
   function openMobileSidebar() {
     els.sidebar.classList.add("open");
@@ -680,6 +867,13 @@
         );
         syncDesmosState();
       }
+      if (state.excalidrawPosition) {
+        state.excalidrawPosition = clampExcalidrawPosition(
+          parseFloat(state.excalidrawPosition.left),
+          parseFloat(state.excalidrawPosition.top),
+        );
+        syncExcalidrawState();
+      }
     }, 200);
   });
 
@@ -690,7 +884,9 @@
   loadAnswersState();
   syncSidebarState();
   syncDesmosState();
+  syncExcalidrawState();
   setupDesmosDrag();
+  setupExcalidrawDrag();
   buildFilters();
   applyFilters(true);
 })();

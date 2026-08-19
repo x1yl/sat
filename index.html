@@ -52,6 +52,49 @@
       Open Desmos
     </button>
 
+    <div
+      class="excalidraw-float"
+      id="excalidrawFloat"
+      aria-label="Excalidraw whiteboard"
+    >
+      <div class="excalidraw-handle" id="excalidrawHandle">
+        <div>
+          <div class="excalidraw-eyebrow">Excalidraw</div>
+          <div class="excalidraw-title">Whiteboard</div>
+        </div>
+        <div class="excalidraw-actions">
+          <button
+            class="excalidraw-btn"
+            id="excalidrawToggle"
+            type="button"
+            aria-label="Minimize whiteboard"
+          >
+            Minimize
+          </button>
+          <button
+            class="excalidraw-btn"
+            id="excalidrawReset"
+            type="button"
+            aria-label="Reset whiteboard position"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+      <div class="excalidraw-body" id="excalidrawBody">
+        <iframe
+          src="https://excalidraw.com/"
+          title="Excalidraw whiteboard"
+          loading="lazy"
+          allow="clipboard-read; clipboard-write; fullscreen"
+        ></iframe>
+      </div>
+    </div>
+
+    <button class="excalidraw-open-btn" id="excalidrawOpenBtn" type="button">
+      Open Excalidraw
+    </button>
+
     <div class="app">
       <aside class="sidebar" id="sidebar">
         <button
@@ -107,6 +150,9 @@
           <div class="topbar-meta">
             <div class="topbar-crumb" id="crumb">—</div>
             <div class="topbar-count" id="qCounter">—</div>
+            <button class="reference-btn" id="referenceBtn" type="button">
+              Reference Sheet
+            </button>
           </div>
           <span class="diff-tag" id="diffTag">—</span>
           <div class="nav-btns">
@@ -118,6 +164,100 @@
         <div class="content">
           <div class="question-col" id="questionCol">
             <!-- injected -->
+          </div>
+        </div>
+
+        <div class="number-help-popup" id="numberHelpPopup">
+          <div class="number-help-card">
+            <button
+              class="number-help-close"
+              id="numberHelpClose"
+              type="button"
+            >
+              Close
+            </button>
+
+            <h2>How to input numbers</h2>
+
+            <p>
+              This site follows Bluebook's answering guidelines for numerical
+              answers.
+            </p>
+
+            <ul>
+              <li>
+                Enter up to <strong>5 characters</strong> for a positive answer,
+                and <strong>6</strong> for a negative answer, including the
+                negative sign.
+              </li>
+              <li>
+                If your fraction doesn't fit in the provided space, enter the
+                decimal equivalent.
+              </li>
+              <li>
+                If your decimal doesn't fit, truncate or round it at the fourth
+                digit.
+              </li>
+              <li>Do not enter multiple answers.</li>
+              <li>
+                Do not enter percentage signs, commas, dollar signs, or other
+                symbols.
+              </li>
+            </ul>
+
+            <table class="number-help-table">
+              <thead>
+                <tr>
+                  <th>Answer</th>
+                  <th>Valid inputs</th>
+                  <th>Invalid inputs</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>3.5</td>
+                  <td>
+                    3.5<br />
+                    3.50<br />
+                    7/2
+                  </td>
+                  <td>
+                    31/2<br />
+                    3 1/2
+                  </td>
+                </tr>
+                <tr>
+                  <td>2/3</td>
+                  <td>
+                    2/3<br />
+                    .6666<br />
+                    .6667<br />
+                    0.666<br />
+                    0.667
+                  </td>
+                  <td>
+                    0.66<br />
+                    .66<br />
+                    0.67<br />
+                    .67
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="reference-popup" id="referencePopup">
+          <div class="reference-card">
+            <button class="reference-close" id="referenceClose" type="button">
+              Close
+            </button>
+
+            <img
+              src="images/sat_reference_sheet.webp"
+              alt="SAT Reference Sheet"
+              class="reference-image"
+            />
           </div>
         </div>
       </main>
