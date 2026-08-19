@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAT Math — Practice Set</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="overlay-scrim" id="scrim"></div>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-close" id="sidebarClose">Close ✕</button>
+
+    <div>
+      <div class="brand-eyebrow">College Board Question Bank</div>
+      <div class="brand-title">SAT Math<br>Practice Set</div>
+      <div class="brand-sub" id="totalCount">367 official questions</div>
+    </div>
+
+    <div class="score-block">
+      <div class="score-num" id="scoreNum">0<span> / 0</span></div>
+      <div class="score-label">Answered correctly</div>
+    </div>
+
+    <div>
+      <div class="section-label">Domain</div>
+      <div class="filter-group" id="domainFilters"></div>
+    </div>
+
+    <div>
+      <div class="section-label">Difficulty</div>
+      <div class="diff-pills" id="diffFilters">
+        <button class="diff-pill" data-diff="Easy">Easy</button>
+        <button class="diff-pill" data-diff="Medium">Medium</button>
+        <button class="diff-pill" data-diff="Hard">Hard</button>
+      </div>
+    </div>
+
+    <button class="reset-link" id="resetBtn">Reset filters &amp; progress</button>
+
+    <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
+      <div class="section-label">Answer sheet — click to jump</div>
+      <div class="bubble-map" id="bubbleMap"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <button class="mobile-toggle" id="mobileToggle">Menu</button>
+      <div class="topbar-meta">
+        <div class="topbar-crumb" id="crumb">—</div>
+        <div class="topbar-count" id="qCounter">—</div>
+      </div>
+      <span class="diff-tag" id="diffTag">—</span>
+      <div class="nav-btns">
+        <button class="nav-btn" id="prevBtn" title="Previous">←</button>
+        <button class="nav-btn" id="nextBtnTop" title="Next">→</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="question-col" id="questionCol">
+        <!-- injected -->
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
