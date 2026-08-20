@@ -7,6 +7,10 @@
     "Advanced Math",
     "Geometry and Trigonometry",
     "Problem-Solving and Data Analysis",
+    "Information and Ideas",
+    "Craft and Structure",
+    "Expression of Ideas",
+    "Standard English Conventions",
   ];
 
   const state = {
@@ -72,9 +76,23 @@
     return counts;
   }
 
+  function getQuestionOrderStorageKey() {
+    const currentPath = window.location.pathname;
+    const currentFile = currentPath.split("/").pop() || "index.html";
+
+    if (currentFile.includes("math")) {
+      return "sat.math.questionOrder";
+    } else {
+      return "sat.english.questionOrder";
+    }
+  }
+
   function getQuestionOrder() {
+    const storageKey = getQuestionOrderStorageKey();
+
+    // Try page-specific order first
     try {
-      const savedOrder = localStorage.getItem("sat.questionOrder");
+      const savedOrder = localStorage.getItem(storageKey);
       if (savedOrder) {
         const parsed = JSON.parse(savedOrder);
         if (Array.isArray(parsed) && parsed.length === QUESTIONS.length) {
@@ -85,9 +103,30 @@
         }
       }
     } catch {
-      // Ignore storage failures and regenerate below.
+      // Ignore storage failures and try fallback below.
     }
 
+    // Backwards compatibility: Check for old sat.questionOrder
+    try {
+      const oldOrder = localStorage.getItem("sat.questionOrder");
+      if (oldOrder) {
+        const parsed = JSON.parse(oldOrder);
+        if (Array.isArray(parsed) && parsed.length === QUESTIONS.length) {
+          const known = new Set(QUESTIONS.map((q) => q.uid));
+          if (parsed.every((uid) => known.has(uid))) {
+            // Migrate old order to new page-specific storage
+            localStorage.setItem(storageKey, JSON.stringify(parsed));
+            // Clean up old key
+            localStorage.removeItem("sat.questionOrder");
+            return parsed;
+          }
+        }
+      }
+    } catch {
+      // Ignore storage failures and generate new order below.
+    }
+
+    // Generate new shuffled order
     const shuffled = QUESTIONS.map((q) => q.uid);
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -95,7 +134,7 @@
     }
 
     try {
-      localStorage.setItem("sat.questionOrder", JSON.stringify(shuffled));
+      localStorage.setItem(storageKey, JSON.stringify(shuffled));
     } catch {
       // Ignore storage failures.
     }
@@ -296,28 +335,75 @@
     }
   }
 
-  function loadAnswersState() {
-    try {
-      const savedAnswers = localStorage.getItem("sat.answers");
-      if (!savedAnswers) return;
-      const parsed = JSON.parse(savedAnswers);
-      state.answers = {};
-      Object.entries(parsed).forEach(([uid, answer]) => {
-        const q = QUESTIONS.find((item) => item.uid === uid);
-        if (!q || !answer || typeof answer.picked !== "string") return;
-        const correct = q.has_choices
-          ? answer.picked === q.correct
-          : checkFreeResponse(answer.picked, q.correct || "");
-        state.answers[uid] = {
-          picked: answer.picked,
-          correct,
-          answeredAt:
-            typeof answer.answeredAt === "number" ? answer.answeredAt : 0,
-        };
-      });
-    } catch {
-      state.answers = {};
+  function getAnswersStorageKey() {
+    const currentPath = window.location.pathname;
+    const currentFile = currentPath.split("/").pop() || "index.html";
+
+    if (currentFile.includes("math")) {
+      return "sat.math.answers";
+    } else {
+      return "sat.english.answers";
     }
+  }
+
+  function loadAnswersState() {
+    const storageKey = getAnswersStorageKey();
+
+    try {
+      // First try to get page-specific answers
+      const savedAnswers = localStorage.getItem(storageKey);
+      if (savedAnswers) {
+        const parsed = JSON.parse(savedAnswers);
+        state.answers = {};
+        Object.entries(parsed).forEach(([uid, answer]) => {
+          const q = QUESTIONS.find((item) => item.uid === uid);
+          if (!q || !answer || typeof answer.picked !== "string") return;
+          const correct = q.has_choices
+            ? answer.picked === q.correct
+            : checkFreeResponse(answer.picked, q.correct || "");
+          state.answers[uid] = {
+            picked: answer.picked,
+            correct,
+            answeredAt:
+              typeof answer.answeredAt === "number" ? answer.answeredAt : 0,
+          };
+        });
+        return;
+      }
+    } catch {
+      // Ignore and try fallback below
+    }
+
+    // Backwards compatibility: Check for old sat.answers
+    try {
+      const oldAnswers = localStorage.getItem("sat.answers");
+      if (oldAnswers) {
+        const parsed = JSON.parse(oldAnswers);
+        state.answers = {};
+        Object.entries(parsed).forEach(([uid, answer]) => {
+          const q = QUESTIONS.find((item) => item.uid === uid);
+          if (!q || !answer || typeof answer.picked !== "string") return;
+          const correct = q.has_choices
+            ? answer.picked === q.correct
+            : checkFreeResponse(answer.picked, q.correct || "");
+          state.answers[uid] = {
+            picked: answer.picked,
+            correct,
+            answeredAt:
+              typeof answer.answeredAt === "number" ? answer.answeredAt : 0,
+          };
+        });
+
+        // Migrate old answers to new page-specific storage
+        saveAnswersState();
+        localStorage.removeItem("sat.answers");
+        return;
+      }
+    } catch {
+      // Ignore and start fresh
+    }
+
+    state.answers = {};
   }
 
   function saveUiState() {
@@ -356,12 +442,47 @@
   }
 
   function saveAnswersState() {
+    const storageKey = getAnswersStorageKey();
     try {
-      localStorage.setItem("sat.answers", JSON.stringify(state.answers));
+      localStorage.setItem(storageKey, JSON.stringify(state.answers));
     } catch {
       // Ignore storage failures.
     }
   }
+
+  els.resetBtn.addEventListener("click", () => {
+    if (!confirm("Reset all filters and answered progress?")) return;
+    state.domainFilter.clear();
+    state.diffFilter.clear();
+    state.statusFilter = "all";
+    state.answers = {};
+
+    // Clear both page-specific and old answers for clean slate
+    const answersKey = getAnswersStorageKey();
+    localStorage.removeItem(answersKey);
+    localStorage.removeItem("sat.answers"); // Clean up old key too
+
+    saveAnswersState();
+
+    // Clear question order
+    const orderKey = getQuestionOrderStorageKey();
+    localStorage.removeItem(orderKey);
+    state.questionOrder = getQuestionOrder();
+
+    els.domainFilters
+      .querySelectorAll("input")
+      .forEach((i) => (i.checked = false));
+    els.diffFilters
+      .querySelectorAll(".diff-pill")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelectorAll(".status-pill")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelector('.status-pill[data-status="all"]')
+      ?.classList.add("active");
+    applyFilters(true);
+  });
 
   function syncSidebarState() {
     els.app.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
@@ -876,6 +997,14 @@
     state.statusFilter = "all";
     state.answers = {};
     saveAnswersState();
+
+    // Clear the page-specific question order
+    const storageKey = getQuestionOrderStorageKey();
+    localStorage.removeItem(storageKey);
+
+    // Regenerate question order
+    state.questionOrder = getQuestionOrder();
+
     els.domainFilters
       .querySelectorAll("input")
       .forEach((i) => (i.checked = false));
@@ -913,6 +1042,28 @@
     }, 200);
   });
 
+  function setupSectionSwitcher() {
+    const switcher = document.getElementById("sectionSwitcher");
+    if (!switcher) return;
+
+    switcher.addEventListener("click", function () {
+      const currentPath = window.location.pathname;
+      const currentFile = currentPath.split("/").pop() || "index.html";
+
+      let targetPage = "";
+
+      if (currentFile.includes("english")) {
+        targetPage = "math.html";
+      } else if (currentFile.includes("math")) {
+        targetPage = "english.html";
+      } else {
+        targetPage = "math.html";
+      }
+
+      window.location.href = targetPage;
+    });
+  }
+
   // init
   els.app = document.querySelector(".app");
   state.questionOrder = getQuestionOrder();
@@ -926,4 +1077,5 @@
   buildFilters();
   buildStatusFilters();
   applyFilters(true);
+  setupSectionSwitcher();
 })();

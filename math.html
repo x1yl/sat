@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SAT Math — Practice Set</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="overlay-scrim" id="scrim"></div>
+
+    <div
+      class="desmos-float"
+      id="desmosFloat"
+      aria-label="Desmos graphing calculator"
+    >
+      <div class="desmos-handle" id="desmosHandle">
+        <div>
+          <div class="desmos-eyebrow">Desmos</div>
+          <div class="desmos-title">College Board graphing</div>
+        </div>
+        <div class="desmos-actions">
+          <button
+            class="desmos-btn"
+            id="desmosToggle"
+            type="button"
+            aria-label="Minimize graphing calculator"
+          >
+            Minimize
+          </button>
+          <button
+            class="desmos-btn"
+            id="desmosReset"
+            type="button"
+            aria-label="Reset graphing calculator position"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+      <div class="desmos-body" id="desmosBody">
+        <iframe
+          src="https://www.desmos.com/testing/collegeboard/graphing"
+          title="Desmos College Board graphing calculator"
+          loading="lazy"
+          allow="clipboard-read; clipboard-write; fullscreen"
+        ></iframe>
+      </div>
+    </div>
+
+    <button class="desmos-open-btn" id="desmosOpenBtn" type="button">
+      Open Desmos
+    </button>
+
+    <div
+      class="excalidraw-float"
+      id="excalidrawFloat"
+      aria-label="Excalidraw whiteboard"
+    >
+      <div class="excalidraw-handle" id="excalidrawHandle">
+        <div>
+          <div class="excalidraw-eyebrow">Excalidraw</div>
+          <div class="excalidraw-title">Whiteboard</div>
+        </div>
+        <div class="excalidraw-actions">
+          <button
+            class="excalidraw-btn"
+            id="excalidrawToggle"
+            type="button"
+            aria-label="Minimize whiteboard"
+          >
+            Minimize
+          </button>
+          <button
+            class="excalidraw-btn"
+            id="excalidrawReset"
+            type="button"
+            aria-label="Reset whiteboard position"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+      <div class="excalidraw-body" id="excalidrawBody">
+        <iframe
+          src="https://excalidraw.com/"
+          title="Excalidraw whiteboard"
+          loading="lazy"
+          allow="clipboard-read; clipboard-write; fullscreen"
+        ></iframe>
+      </div>
+    </div>
+
+    <button class="excalidraw-open-btn" id="excalidrawOpenBtn" type="button">
+      Open Excalidraw
+    </button>
+
+    <div class="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <button
+            class="section-switcher"
+            id="sectionSwitcher"
+            type="button"
+            aria-label="Switch between SAT Math and SAT English"
+          >
+            Switch to English
+          </button>
+          <button
+            class="sidebar-toggle"
+            id="sidebarToggle"
+            type="button"
+            aria-label="Collapse left navigation"
+          >
+            Collapse
+          </button>
+          <button class="sidebar-close" id="sidebarClose">Close ✕</button>
+        </div>
+
+        <div>
+          <div class="brand-eyebrow">College Board Question Bank</div>
+          <div class="brand-title">SAT Math<br />Practice Set</div>
+          <div class="brand-sub" id="totalCount">367 official questions</div>
+        </div>
+
+        <div class="score-block">
+          <div class="score-num" id="scoreNum">0<span> / 0</span></div>
+          <div class="score-label">Answered correctly</div>
+        </div>
+
+        <div>
+          <div class="section-label">Domain</div>
+          <div class="filter-group" id="domainFilters"></div>
+        </div>
+
+        <div>
+          <div class="section-label">Difficulty</div>
+          <div class="diff-pills" id="diffFilters">
+            <button class="diff-pill" data-diff="Easy">Easy</button>
+            <button class="diff-pill" data-diff="Medium">Medium</button>
+            <button class="diff-pill" data-diff="Hard">Hard</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">Status</div>
+          <div class="status-toggle-group">
+            <button class="status-pill active" data-status="active">
+              Active
+            </button>
+            <button class="status-pill" data-status="inactive">Inactive</button>
+            <button class="status-pill" data-status="all">All</button>
+          </div>
+        </div>
+
+        <button class="reset-link" id="resetBtn">
+          Reset filters &amp; progress
+        </button>
+
+        <div
+          style="flex: 1; display: flex; flex-direction: column; min-height: 0"
+        >
+          <div class="section-label">Answer sheet — click to jump</div>
+          <div class="bubble-map" id="bubbleMap"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <button class="mobile-toggle" id="mobileToggle">Menu</button>
+          <div class="topbar-meta">
+            <div class="topbar-crumb" id="crumb">—</div>
+            <div class="topbar-count" id="qCounter">—</div>
+            <button class="reference-btn" id="referenceBtn" type="button">
+              Reference Sheet
+            </button>
+          </div>
+          <span class="diff-tag" id="diffTag">—</span>
+          <div class="nav-btns">
+            <button class="nav-btn" id="prevBtn" title="Previous">←</button>
+            <button class="nav-btn" id="nextBtnTop" title="Next">→</button>
+          </div>
+        </div>
+
+        <div class="content">
+          <div class="question-col" id="questionCol">
+            <!-- injected -->
+          </div>
+        </div>
+
+        <div class="number-help-popup" id="numberHelpPopup">
+          <div class="number-help-card">
+            <button
+              class="number-help-close"
+              id="numberHelpClose"
+              type="button"
+            >
+              Close
+            </button>
+
+            <h2>How to input numbers</h2>
+
+            <p>
+              This site follows Bluebook's answering guidelines for numerical
+              answers.
+            </p>
+
+            <ul>
+              <li>
+                Enter up to <strong>5 characters</strong> for a positive answer,
+                and <strong>6</strong> for a negative answer, including the
+                negative sign.
+              </li>
+              <li>
+                If your fraction doesn't fit in the provided space, enter the
+                decimal equivalent.
+              </li>
+              <li>
+                If your decimal doesn't fit, truncate or round it at the fourth
+                digit.
+              </li>
+              <li>Do not enter multiple answers.</li>
+              <li>
+                Do not enter percentage signs, commas, dollar signs, or other
+                symbols.
+              </li>
+            </ul>
+
+            <table class="number-help-table">
+              <thead>
+                <tr>
+                  <th>Answer</th>
+                  <th>Valid inputs</th>
+                  <th>Invalid inputs</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>3.5</td>
+                  <td>
+                    3.5<br />
+                    3.50<br />
+                    7/2
+                  </td>
+                  <td>
+                    31/2<br />
+                    3 1/2
+                  </td>
+                </tr>
+                <tr>
+                  <td>2/3</td>
+                  <td>
+                    2/3<br />
+                    .6666<br />
+                    .6667<br />
+                    0.666<br />
+                    0.667
+                  </td>
+                  <td>
+                    0.66<br />
+                    .66<br />
+                    0.67<br />
+                    .67
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="reference-popup" id="referencePopup">
+          <div class="reference-card">
+            <button class="reference-close" id="referenceClose" type="button">
+              Close
+            </button>
+
+            <img
+              src="images/sat_reference_sheet.webp"
+              alt="SAT Reference Sheet"
+              class="reference-image"
+            />
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="math.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
