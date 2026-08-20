@@ -1,360 +1,290 @@
 """
-extract_questions.py
+build_site_data.py
 
-Parses College Board Question Bank PDF exports (the "print as PDF" style
-export with one question per page, a metadata table, and a Rationale
-section) into structured question data + cropped question/answer images.
+Takes the output of extract_questions.py (questions.json + the cropped
+PNG images in WORK_DIR/images) and prepares it for the web site:
+
+  1. Reads existing data.js to avoid duplicate questions (based on uid after last _)
+  2. Filters new questions to only those not already present
+  3. Converts only the PNGs needed for new questions to WebP (quality 82)
+  4. Rewrites the image filenames in the new question data to point at .webp files
+  5. Appends the new questions to data.js
+  6. Cleans up temporary files created by extract_questions.py
 
 Usage:
-    python3 extract_questions.py
+    python3 extract_questions.py      # run this first
+    python3 build_site_data.py
 
-Edit PDF_SOURCES at the bottom to point at your input PDFs, and
-WORK_DIR for where you want the output written.
-
-Requires: pdfplumber, Pillow, and poppler-utils (pdftoppm) on PATH.
-    pip install pdfplumber pillow --break-system-packages
-    apt-get install poppler-utils   # provides pdftoppm
-
-How it works
-------------
-Each question in these PDF exports follows a consistent layout:
-  1. A "Question ID <hex>" header, a metadata table (Assessment / Test /
-     Domain / Skill / Difficulty), and a navy "ID: <hex>" bar.
-  2. The question stem, (optional) graph/figure, and answer choices
-     A-D (or, for student-produced-response questions, no choices).
-  3. A navy "ID: <hex> Answer" bar, "Correct Answer: ...", "Rationale",
-     the explanation text, and "Question Difficulty: ...".
-
-Because many equations and all graphs are embedded as images (not
-selectable text) in the source PDF, plain text extraction loses that
-content. This script instead:
-  - Uses pdfplumber word bounding boxes to find the structural markers
-    above (question start, the front/back boundary, choice letters,
-    metadata table) with page/pixel coordinates.
-  - Rasterizes each page with pdftoppm and crops out two clean images
-    per question: the question ("front") and the answer + rationale
-    ("back") -- with the redundant navy header/footer bars trimmed out.
-  - Also outputs pixel-coordinate hit-boxes for each A/B/C/D choice
-    marker, so a front-end can overlay clickable regions on the
-    question image without needing to re-typeset the choices as text.
+Requires: Pillow.
+    pip install pillow --break-system-packages
 """
 
-import pdfplumber, re, os, json, subprocess, unicodedata
+import json, os, glob, re, shutil
 from PIL import Image
 
-DPI = 130
-SCALE = DPI / 72.0
-PAGE_H_PT = 792
-PAGE_H_PX = int(PAGE_H_PT * SCALE)
-MARGIN_PX = 14
-
 WORK_DIR = r"C:\Users\kevin\Downloads\sat\scripts"
-OUT_IMG = os.path.join(WORK_DIR, "images")
-OUT_JSON = os.path.join(WORK_DIR, "questions.json")
-os.makedirs(OUT_IMG, exist_ok=True)
+SRC_IMG_DIR = os.path.join(WORK_DIR, "images")
+SRC_JSON = os.path.join(WORK_DIR, "questions.json")
 
-_render_cache = {}
+SITE_DIR = r"C:\Users\kevin\Downloads\sat"
+DST_IMG_DIR = os.path.join(SITE_DIR, "images")
+DST_DATA_JS = os.path.join(SITE_DIR, "data.js")
 
-
-def render_page(pdf_path, page_num_1indexed, tag):
-    """Rasterize a single PDF page to a PIL Image, cached per (tag, page)."""
-    key = (tag, page_num_1indexed)
-    if key in _render_cache:
-        return _render_cache[key]
-    out_prefix = os.path.join(WORK_DIR, f"render_{tag}_{page_num_1indexed}")
-    subprocess.run(
-        [
-            "pdftoppm",
-            "-png",
-            "-r",
-            str(DPI),
-            "-f",
-            str(page_num_1indexed),
-            "-l",
-            str(page_num_1indexed),
-            pdf_path,
-            out_prefix,
-        ],
-        check=True,
-        capture_output=True,
-    )
-    found = None
-    for f in os.listdir(WORK_DIR):
-        if f.startswith(os.path.basename(out_prefix)):
-            found = os.path.join(WORK_DIR, f)
-            break
-    if not found:
-        raise RuntimeError("render failed " + out_prefix)
-    im = Image.open(found)
-    im.load()
-    _render_cache[key] = im
-    return im
+WEBP_QUALITY = 82
 
 
-def find_blocks(pdf, tag):
-    """Locate every 'Question ID <hex>' marker and derive each question's
-    page range (from its own start page to the page before the next
-    question starts, or end of document)."""
-    starts = []
-    for pi, page in enumerate(pdf.pages):
-        words = page.extract_words()
-        texts = [w["text"] for w in words]
-        if texts[:2] == ["Question", "ID"]:
-            qid = texts[2]
-            starts.append((pi, qid))
-    blocks = []
-    for i, (pi, qid) in enumerate(starts):
-        end_pi = starts[i + 1][0] - 1 if i + 1 < len(starts) else len(pdf.pages) - 1
-        blocks.append({"qid": qid, "start_page": pi, "end_page": end_pi})
-    return blocks
-
-
-def find_answer_boundary(words):
-    """Find the 'ID: <qid> Answer' marker that separates question from
-    answer/rationale. Returns (top, bottom) of that text, or (None, None)
-    if not present on this page."""
-    for i in range(len(words) - 2):
-        if words[i]["text"] == "ID:" and words[i + 2]["text"] == "Answer":
-            return words[i]["top"], words[i]["bottom"]
-    return None, None
-
-
-def find_content_start(words, qid):
-    """Find the bottom y of the 'ID: <qid>' start marker (not the Answer
-    one), so we can crop out the header table above it."""
-    for i in range(len(words) - 1):
-        if words[i]["text"] == "ID:" and words[i + 1]["text"] == qid:
-            if i + 2 >= len(words) or words[i + 2]["text"] != "Answer":
-                return words[i]["bottom"]
-    return None
-
-
-def find_choice_boxes(words):
-    """Find A./B./C./D. choice-letter markers (left-aligned near the page
-    margin) and return each one's vertical span, for building clickable
-    overlay regions on the question image."""
-    markers = []
-    for w in words:
-        if w["text"] in ("A.", "B.", "C.", "D.") and w["x0"] < 40:
-            markers.append({"letter": w["text"][0], "top": w["top"]})
-    if len(markers) < 2:
+def get_existing_questions():
+    """Read existing data.js and return the questions array, or empty list if not found"""
+    if not os.path.exists(DST_DATA_JS):
         return []
-    markers.sort(key=lambda m: m["top"])
-    boxes = []
-    for i, m in enumerate(markers):
-        bottom = markers[i + 1]["top"] if i + 1 < len(markers) else None
-        boxes.append({"letter": m["letter"], "top": m["top"], "bottom": bottom})
-    return boxes
+
+    with open(DST_DATA_JS, "r") as f:
+        content = f.read()
+        match = re.search(r"const QUESTIONS = (\[.*?\]);", content, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                print("Warning: Could not parse existing data.js, starting fresh...")
+                return []
+    return []
 
 
-def get_metadata(words):
-    """Pull domain / skill / correct answer / difficulty out of a page's
-    (or combined pages') word list."""
-    texts = [w["text"] for w in words]
-    full_text = unicodedata.normalize("NFKC", " ".join(texts))
-    domain, skill = None, None
-    sat_idx = None
-    for i, w in enumerate(words):
-        if w["text"] == "SAT" and i + 1 < len(words) and words[i + 1]["text"] == "Math":
-            sat_idx = i
-            break
-    if sat_idx is not None:
-        row_top = words[sat_idx]["top"]
-        row_words = [w for w in words if abs(w["top"] - row_top) < 3]
-        # Column x-ranges from the metadata table header row:
-        # Assessment ~18  Test ~128  Domain ~238  Skill ~348  Difficulty ~458
-        domain_words = [w["text"] for w in row_words if 220 <= w["x0"] < 340]
-        skill_words = [w["text"] for w in row_words if 340 <= w["x0"] < 450]
-        domain = " ".join(domain_words) if domain_words else None
-        skill = " ".join(skill_words) if skill_words else None
-        # Domain/Skill can wrap onto a second line within the same cell.
-        for w in words:
-            if row_top < w["top"] < row_top + 30 and 340 <= w["x0"] < 450:
-                skill = (skill + " " + w["text"]) if skill else w["text"]
-            if row_top < w["top"] < row_top + 30 and 220 <= w["x0"] < 340:
-                domain = (domain + " " + w["text"]) if domain else w["text"]
-
-    correct_match = re.search(r"Correct Answer:\s*(.*?)\s*Rationale", full_text)
-    correct = correct_match.group(1).strip() if correct_match else None
-    diff_match = re.search(r"Question Difficulty:\s*(Easy|Medium|Hard)", full_text)
-    difficulty = diff_match.group(1) if diff_match else None
-    return domain, skill, correct, difficulty
+def get_uid_key(uid):
+    """Extract the part after the last underscore in the uid"""
+    if uid and "_" in uid:
+        return uid.rsplit("_", 1)[1]  # rsplit gets the last part
+    return uid  # fallback to full uid if no underscore
 
 
-def content_bottom_px(words, top_limit_pt=0):
-    """Max bottom (in px) of words on a page at/after top_limit_pt --
-    used to trim trailing blank space off cropped images."""
-    relevant = [w for w in words if w["top"] >= top_limit_pt - 1]
-    if not relevant:
-        return None
-    max_bottom = max(w["bottom"] for w in relevant)
-    return min(PAGE_H_PX, int(max_bottom * SCALE) + MARGIN_PX)
+def filter_new_questions(new_questions, existing_questions):
+    """Filter out questions that already exist in data.js based on uid after last _"""
+    # Build set of existing unique IDs
+    existing_ids = set()
+    for q in existing_questions:
+        if "uid" in q:
+            existing_ids.add(get_uid_key(q["uid"]))
+
+    print(f"  Existing unique IDs: {len(existing_ids)}")
+
+    # Track duplicates to understand what's happening
+    duplicates_against_existing = []
+    duplicates_within_new = []
+    seen_in_batch = set()
+    filtered = []
+
+    for q in new_questions:
+        if "uid" in q:
+            uid_key = get_uid_key(q["uid"])
+
+            # Check if it's a duplicate against existing
+            if uid_key in existing_ids:
+                duplicates_against_existing.append(q["uid"])
+                continue
+
+            # Check if it's a duplicate within the new batch
+            if uid_key in seen_in_batch:
+                duplicates_within_new.append(q["uid"])
+                continue
+
+            # It's a new unique question
+            filtered.append(q)
+            seen_in_batch.add(uid_key)
+            existing_ids.add(uid_key)  # Prevent duplicates within new batch
+        else:
+            print(f"Warning: Question without uid found, adding anyway")
+            filtered.append(q)
+
+    if duplicates_against_existing:
+        print(f"  Duplicates against existing: {len(duplicates_against_existing)}")
+        sample = duplicates_against_existing[:5]
+        print(
+            f"    Sample: {sample}{'...' if len(duplicates_against_existing) > 5 else ''}"
+        )
+
+    if duplicates_within_new:
+        print(f"  Duplicates within new batch: {len(duplicates_within_new)}")
+        sample = duplicates_within_new[:5]
+        print(f"    Sample: {sample}{'...' if len(duplicates_within_new) > 5 else ''}")
+
+    print(f"  New unique questions to add: {len(filtered)}")
+
+    return filtered
 
 
-def process_pdf(pdf_path, tag, id_prefix):
-    """Extract every question from one PDF into a list of dicts, and
-    write cropped question/answer images to OUT_IMG."""
-    results = []
-    with pdfplumber.open(pdf_path) as pdf:
-        blocks = find_blocks(pdf, tag)
-        print(f"{tag}: {len(blocks)} blocks")
-        for bi, block in enumerate(blocks):
-            qid = block["qid"]
-            uid = f"{id_prefix}_{bi:03d}_{qid}"
-            start_p = block["start_page"]
-            end_p = block["end_page"]
+def convert_images_to_webp(needed_image_names):
+    """
+    Convert only the PNG images that are needed for new questions.
+    needed_image_names: set of base filenames without extension (e.g., {'img_001', 'img_002'})
+    """
+    if not needed_image_names:
+        print("No new images to convert")
+        return
 
-            all_words_by_page = {}
-            for pi in range(start_p, end_p + 1):
-                all_words_by_page[pi] = pdf.pages[pi].extract_words()
+    os.makedirs(DST_IMG_DIR, exist_ok=True)
 
-            # Locate the front/back boundary (may be on start_p or an
-            # overflow page, for unusually long questions).
-            boundary_page, boundary_top, boundary_bottom = None, None, None
-            for pi in range(start_p, end_p + 1):
-                bt, bb = find_answer_boundary(all_words_by_page[pi])
-                if bt is not None:
-                    boundary_page, boundary_top, boundary_bottom = pi, bt, bb
-                    break
-            if boundary_page is None:
-                boundary_page, boundary_top, boundary_bottom = end_p, 0, 0
+    # Find all PNG files in the source directory
+    all_png_files = glob.glob(os.path.join(SRC_IMG_DIR, "*.png"))
 
-            # Metadata: try the start page first; some fields (especially
-            # "Correct Answer" and "Question Difficulty") can end up on a
-            # later overflow page for long questions, so fall back to the
-            # combined text of every page in the block.
-            domain, skill, correct, difficulty = get_metadata(
-                all_words_by_page[start_p]
+    # Filter to only those we need
+    needed_pngs = []
+    for f in all_png_files:
+        basename = os.path.splitext(os.path.basename(f))[0]
+        if basename in needed_image_names:
+            needed_pngs.append(f)
+
+    print(f"converting {len(needed_pngs)} new images to webp...")
+
+    for i, f in enumerate(needed_pngs):
+        try:
+            im = Image.open(f).convert("RGB")
+            name = os.path.splitext(os.path.basename(f))[0] + ".webp"
+            im.save(
+                os.path.join(DST_IMG_DIR, name), "WEBP", quality=WEBP_QUALITY, method=6
             )
-            if not difficulty or not correct:
-                combined_words = []
-                for pi in range(start_p, end_p + 1):
-                    combined_words += all_words_by_page[pi]
-                _, _, c2, d2 = get_metadata(combined_words)
-                if not difficulty and d2:
-                    difficulty = d2
-                if not correct and c2:
-                    correct = c2
+            if i % 50 == 0:
+                print(f"  {i}/{len(needed_pngs)}")
+        except Exception as e:
+            print(f"  Error converting {f}: {e}")
 
-            # Choice-letter hit-boxes, restricted to the "question part"
-            # of the page(s) (above the answer boundary).
-            choice_boxes_by_page = {}
-            has_choices = False
-            for pi in range(start_p, boundary_page + 1):
-                ws = all_words_by_page[pi]
-                if pi == boundary_page:
-                    ws = [w for w in ws if w["top"] < boundary_top]
-                boxes = find_choice_boxes(ws)
-                if boxes:
-                    has_choices = True
-                    choice_boxes_by_page[pi] = boxes
-
-            content_start_bottom = find_content_start(all_words_by_page[start_p], qid)
-            # The navy header/footer bars extend a bit beyond their text
-            # on both sides; these paddings (in PDF points) were measured
-            # directly off a rendered sample page and are consistent
-            # across the whole document.
-            PAD_BELOW = 7  # gap from text bottom to navy bar's bottom edge
-            PAD_ABOVE = 9  # gap from text top to navy bar's top edge
-
-            # ---- FRONT images (question) ----
-            front_images = []
-            for pi in range(start_p, boundary_page + 1):
-                im = render_page(pdf_path, pi + 1, tag)
-                top_crop = 0
-                if pi == start_p and content_start_bottom is not None:
-                    top_crop = int((content_start_bottom + PAD_BELOW) * SCALE)
-                if pi == boundary_page:
-                    bottom_crop = int((boundary_top - PAD_ABOVE) * SCALE)
-                else:
-                    cb = content_bottom_px(all_words_by_page[pi])
-                    bottom_crop = cb if cb else im.height
-                bottom_crop = max(bottom_crop, top_crop + 10)
-                cropped = im.crop((0, top_crop, im.width, bottom_crop))
-                fname = f"{OUT_IMG}/{uid}_q{pi-start_p}.png"
-                cropped.save(fname, optimize=True)
-                front_images.append(os.path.basename(fname))
-
-            # ---- BACK images (answer + rationale) ----
-            back_images = []
-            for pi in range(boundary_page, end_p + 1):
-                im = render_page(pdf_path, pi + 1, tag)
-                top_crop = (
-                    int((boundary_bottom + PAD_BELOW) * SCALE)
-                    if pi == boundary_page
-                    else 0
-                )
-                cb = content_bottom_px(
-                    all_words_by_page[pi], boundary_top if pi == boundary_page else 0
-                )
-                bottom_crop = cb if cb else im.height
-                bottom_crop = max(bottom_crop, top_crop + 10)
-                cropped = im.crop((0, top_crop, im.width, bottom_crop))
-                fname = f"{OUT_IMG}/{uid}_a{pi-boundary_page}.png"
-                cropped.save(fname, optimize=True)
-                back_images.append(os.path.basename(fname))
-
-            # Choice-letter pixel coordinates, relative to their front
-            # image (accounting for the header crop offset on the first
-            # page of the block).
-            choice_overlay = []
-            crop_offset_px = (
-                (int((content_start_bottom + PAD_BELOW) * SCALE))
-                if content_start_bottom is not None
-                else 0
-            )
-            for pi, boxes in choice_boxes_by_page.items():
-                img_idx = pi - start_p
-                offset = crop_offset_px if pi == start_p else 0
-                for b in boxes:
-                    top_px = int(b["top"] * SCALE) - offset
-                    bottom_px = (
-                        (int(b["bottom"] * SCALE) - offset) if b["bottom"] else None
-                    )
-                    choice_overlay.append(
-                        {
-                            "letter": b["letter"],
-                            "page_idx": img_idx,
-                            "top": top_px,
-                            "bottom": bottom_px,
-                        }
-                    )
-
-            first_im = Image.open(f"{OUT_IMG}/{front_images[0]}")
-            img_w, img_h = first_im.size
-
-            results.append(
-                {
-                    "uid": uid,
-                    "source": tag,
-                    "domain": domain,
-                    "skill": skill,
-                    "difficulty": difficulty,
-                    "correct": correct,
-                    "has_choices": has_choices,
-                    "front_images": front_images,
-                    "back_images": back_images,
-                    "choice_overlay": choice_overlay,
-                    "img_w": img_w,
-                }
-            )
-            if bi % 15 == 0:
-                _render_cache.clear()  # keep memory bounded on long runs
-                print(f"  {tag} processed {bi}/{len(blocks)}")
-        _render_cache.clear()
-    return results
+    print(f"done converting {len(needed_pngs)} images")
 
 
-# ---- Configure your inputs/outputs here ----
-PDF_SOURCES = [
-    (r"C:\Users\kevin\Downloads\sat\sat.pdf", "sat", "S"),
-    (r"C:\Users\kevin\Downloads\sat\srcdoc.pdf", "srcdoc", "D"),
-]
+def append_to_data_js(new_questions):
+    """Append new questions to the existing data.js file"""
+    if not new_questions:
+        print("No new questions to add")
+        return
+
+    # Read existing questions
+    existing_questions = get_existing_questions()
+
+    # Combine
+    combined = existing_questions + new_questions
+
+    # Write back
+    with open(DST_DATA_JS, "w") as f:
+        f.write("const QUESTIONS = ")
+        json.dump(combined, f, separators=(",", ":"))
+        f.write(";\n")
+
+    print(
+        f"wrote {DST_DATA_JS} ({os.path.getsize(DST_DATA_JS)} bytes, "
+        f"{len(combined)} total questions, {len(new_questions)} new)"
+    )
+
+
+def cleanup_temp_files():
+    """Delete temporary files created by extract_questions.py"""
+    print("\nCleaning up temporary files...")
+
+    deleted_count = 0
+    deleted_size = 0
+
+    # Delete the images directory and all its contents
+    if os.path.exists(SRC_IMG_DIR):
+        try:
+            # Calculate size before deletion
+            total_size = 0
+            for dirpath, dirnames, filenames in os.walk(SRC_IMG_DIR):
+                for f in filenames:
+                    fp = os.path.join(dirpath, f)
+                    if os.path.isfile(fp):
+                        total_size += os.path.getsize(fp)
+
+            # Delete the directory
+            shutil.rmtree(SRC_IMG_DIR)
+            deleted_count += 1
+            deleted_size += total_size
+            print(f"  Deleted: {SRC_IMG_DIR} ({total_size / (1024*1024):.2f} MB)")
+        except Exception as e:
+            print(f"  Error deleting {SRC_IMG_DIR}: {e}")
+
+    # Delete questions.json
+    if os.path.exists(SRC_JSON):
+        try:
+            size = os.path.getsize(SRC_JSON)
+            os.remove(SRC_JSON)
+            deleted_count += 1
+            deleted_size += size
+            print(f"  Deleted: {SRC_JSON} ({size / 1024:.2f} KB)")
+        except Exception as e:
+            print(f"  Error deleting {SRC_JSON}: {e}")
+
+    # Delete render_*.png files
+    render_files = glob.glob(os.path.join(WORK_DIR, "render_*.png"))
+    if render_files:
+        total_size = 0
+        for f in render_files:
+            try:
+                total_size += os.path.getsize(f)
+                os.remove(f)
+            except Exception as e:
+                print(f"  Error deleting {f}: {e}")
+        deleted_count += len(render_files)
+        deleted_size += total_size
+        print(
+            f"  Deleted: {len(render_files)} render_*.png files ({total_size / (1024*1024):.2f} MB)"
+        )
+
+    print(
+        f"  Total cleaned: {deleted_count} items, {deleted_size / (1024*1024):.2f} MB freed"
+    )
+
+
+def main():
+    # Step 1: Load the new questions from questions.json
+    with open(SRC_JSON) as f:
+        all_new_questions = json.load(f)
+    print(f"Loaded {len(all_new_questions)} questions from {SRC_JSON}")
+
+    # Step 2: Get existing questions from data.js
+    existing_questions = get_existing_questions()
+    print(f"Found {len(existing_questions)} existing questions in data.js")
+
+    # Step 3: Filter to only new questions
+    new_questions = filter_new_questions(all_new_questions, existing_questions)
+
+    if not new_questions:
+        print("\n✓ No new questions to process. Exiting.")
+        # Still clean up since there's nothing new to add
+        cleanup_temp_files()
+        return
+
+    # Step 4: Collect all image filenames needed from new questions
+    needed_images = set()
+    for q in new_questions:
+        for img in q.get("front_images", []):
+            # Remove .png extension if present
+            basename = os.path.splitext(img)[0]
+            needed_images.add(basename)
+        for img in q.get("back_images", []):
+            basename = os.path.splitext(img)[0]
+            needed_images.add(basename)
+
+    print(
+        f"  Need to convert {len(needed_images)} unique images for {len(new_questions)} new questions"
+    )
+
+    # Step 5: Convert only the images we need
+    convert_images_to_webp(needed_images)
+
+    # Step 6: Update image references in new questions to .webp
+    for q in new_questions:
+        q["front_images"] = [f.replace(".png", ".webp") for f in q["front_images"]]
+        q["back_images"] = [f.replace(".png", ".webp") for f in q["back_images"]]
+
+    # Step 7: Append to data.js
+    append_to_data_js(new_questions)
+
+    # Step 8: Clean up temporary files
+    cleanup_temp_files()
+
+    print("\n✓ Done! Summary:")
+    print(f"  - Existing questions: {len(existing_questions)}")
+    print(f"  - New questions added: {len(new_questions)}")
+    print(f"  - Total questions: {len(existing_questions) + len(new_questions)}")
+
 
 if __name__ == "__main__":
-    all_results = []
-    for pdf_path, tag, prefix in PDF_SOURCES:
-        all_results += process_pdf(pdf_path, tag, prefix)
-    with open(OUT_JSON, "w") as f:
-        json.dump(all_results, f, indent=1)
-    print("TOTAL:", len(all_results))
+    main()

@@ -588,6 +588,29 @@ button {
   color: var(--paper-raised);
 }
 
+.status-toggle-group {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.status-pill {
+  flex: 1;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  border-radius: var(--radius);
+  padding: 6px 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: center;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.status-pill.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper-raised);
+}
+
 .reset-link {
   background: none;
   border: none;

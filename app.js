@@ -12,6 +12,7 @@
   const state = {
     domainFilter: new Set(), // empty = all
     diffFilter: new Set(), // empty = all
+    statusFilter: "all", // "all", "active", "inactive"
     filtered: [],
     index: 0,
     answers: {}, // uid -> { picked, correct }
@@ -59,6 +60,14 @@
     const counts = {};
     QUESTIONS.forEach((q) => {
       counts[q.domain] = (counts[q.domain] || 0) + 1;
+    });
+    return counts;
+  }
+
+  function getStatusCounts() {
+    const counts = { active: 0, inactive: 0 };
+    QUESTIONS.forEach((q) => {
+      counts[q.active !== false ? "active" : "inactive"]++;
     });
     return counts;
   }
@@ -164,6 +173,24 @@
     els.totalCount.textContent = `${QUESTIONS.length} official questions`;
   }
 
+  function buildStatusFilters() {
+    const counts = getStatusCounts();
+    const container = document.querySelector(".status-toggle-group");
+    if (!container) return;
+
+    container.querySelectorAll(".status-pill").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const status = btn.dataset.status;
+        state.statusFilter = status;
+        container
+          .querySelectorAll(".status-pill")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        applyFilters(true);
+      });
+    });
+  }
+
   function applyFilters(resetIndex, preserveUid = null) {
     const currentUid =
       preserveUid ||
@@ -173,6 +200,8 @@
         return false;
       if (state.diffFilter.size && !state.diffFilter.has(q.difficulty))
         return false;
+      if (state.statusFilter === "active" && q.active === false) return false;
+      if (state.statusFilter === "inactive" && q.active !== false) return false;
       return true;
     });
     state.filtered = getOrderedQuestions(filtered);
@@ -844,6 +873,7 @@
     if (!confirm("Reset all filters and answered progress?")) return;
     state.domainFilter.clear();
     state.diffFilter.clear();
+    state.statusFilter = "all";
     state.answers = {};
     saveAnswersState();
     els.domainFilters
@@ -852,6 +882,12 @@
     els.diffFilters
       .querySelectorAll(".diff-pill")
       .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelectorAll(".status-pill")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelector('.status-pill[data-status="all"]')
+      ?.classList.add("active");
     applyFilters(true);
   });
 
@@ -888,5 +924,6 @@
   setupDesmosDrag();
   setupExcalidrawDrag();
   buildFilters();
+  buildStatusFilters();
   applyFilters(true);
 })();
