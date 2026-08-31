@@ -683,6 +683,32 @@ button {
   text-align: left;
 }
 
+.settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-action {
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.settings-action:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
 /* Bubble sheet map */
 .bubble-map {
   display: grid;

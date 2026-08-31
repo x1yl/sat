@@ -22,7 +22,7 @@
     answers: {}, // uid -> { picked, correct }
     questionOrder: [],
     sidebarCollapsed: false,
-    desmosMinimized: false,
+    desmosMinimized: true,
     desmosPosition: null,
     excalidrawMinimized: true,
     excalidrawPosition: null,
@@ -318,6 +318,9 @@
       state.desmosPosition = savedDesmosPosition
         ? JSON.parse(savedDesmosPosition)
         : null;
+      if (savedDesmosMinimized === null) {
+        state.desmosMinimized = true;
+      }
       state.excalidrawMinimized = savedExcalidrawMinimized === "true";
       state.excalidrawPosition = savedExcalidrawPosition
         ? JSON.parse(savedExcalidrawPosition)
@@ -448,6 +451,109 @@
     } catch {
       // Ignore storage failures.
     }
+  }
+
+  function getSatStorageSnapshot() {
+    const snapshot = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith("sat.")) continue;
+      try {
+        snapshot[key] = localStorage.getItem(key);
+      } catch (error) {
+        console.warn("Could not read SAT storage key:", key, error);
+      }
+    }
+    return snapshot;
+  }
+
+  function downloadJson(data, filename = "sat-settings.json") {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportSatSettings() {
+    const snapshot = getSatStorageSnapshot();
+
+    if (Object.keys(snapshot).length === 0) {
+      alert("No SAT settings found to export.");
+      return;
+    }
+
+    downloadJson(snapshot, "sat-settings.json");
+    console.log("Exported SAT settings:", snapshot);
+  }
+
+  async function importSatSettings(file) {
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const imported = JSON.parse(text);
+
+      if (!imported || typeof imported !== "object" || Array.isArray(imported)) {
+        throw new Error("Imported file is not a valid settings object.");
+      }
+
+      const entries = Object.entries(imported);
+      if (!entries.length) {
+        alert("This JSON file does not contain any SAT settings.");
+        return;
+      }
+
+      for (const [key, value] of entries) {
+        if (typeof key !== "string") continue;
+        const fullKey = key.startsWith("sat.") ? key : `sat.${key}`;
+        try {
+          if (value === null || typeof value === "undefined") {
+            localStorage.removeItem(fullKey);
+          } else {
+            localStorage.setItem(fullKey, String(value));
+          }
+        } catch (error) {
+          console.warn("Could not restore SAT storage key:", fullKey, error);
+        }
+      }
+
+      console.log("Imported SAT settings:", imported);
+      window.location.reload();
+    } catch (error) {
+      console.error("Import failed:", error);
+      alert("That file could not be imported.");
+    }
+  }
+
+  function setupSettingsImportExport() {
+    const exportBtn = document.getElementById("exportSettingsBtn");
+    const importBtn = document.getElementById("importSettingsBtn");
+
+    if (!exportBtn || !importBtn) return;
+
+    exportBtn.addEventListener("click", exportSatSettings);
+    importBtn.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/json";
+      input.addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (file) await importSatSettings(file);
+        input.value = "";
+      });
+      input.click();
+    });
+
+    els.exportSettingsBtn = exportBtn;
+    els.importSettingsBtn = importBtn;
   }
 
   els.resetBtn.addEventListener("click", () => {
@@ -1076,6 +1182,7 @@
   setupExcalidrawDrag();
   buildFilters();
   buildStatusFilters();
+  setupSettingsImportExport();
   applyFilters(true);
   setupSectionSwitcher();
 })();
