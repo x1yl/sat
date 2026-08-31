@@ -173,10 +173,23 @@ button {
     width: 86vw;
     max-width: 340px;
     height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     box-shadow: 8px 0 28px rgba(0, 0, 0, 0.18);
+    padding-bottom: 24px;
   }
   .sidebar.open {
     display: flex;
+  }
+  .sidebar > * {
+    flex-shrink: 0;
+  }
+  .sidebar > *:last-child {
+    flex: 1 1 auto;
+    min-height: 220px;
   }
   .sidebar-close {
     display: block;
@@ -197,6 +210,11 @@ button {
   }
   .section-switcher {
     flex: 1;
+  }
+  .bubble-map {
+    max-height: none;
+    min-height: 180px;
+    flex: 1 1 auto;
   }
 }
 
@@ -718,6 +736,7 @@ button {
   overflow-y: auto;
   padding-right: 4px;
 }
+
 .bubble {
   width: 26px;
   height: 26px;
