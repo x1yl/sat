@@ -776,6 +776,14 @@
           <button class="number-help-btn" id="numberHelpBtn" type="button"> How to input numbers</button>
         </div>`;
 
+    const confirmHtml =
+      q.has_choices && !existingAnswer
+        ? `<div class="confirm-row">
+          <span class="confirm-selected" id="confirmSelected">No choice selected</span>
+          <button class="confirm-btn" id="confirmBtn" type="button" disabled>Confirm answer</button>
+        </div>`
+        : "";
+
     let feedbackHtml = "";
     let rationaleHtml = "";
     if (existingAnswer) {
@@ -795,11 +803,12 @@
       <div class="card">
         <div class="img-stack">${frontHtml}</div>
         ${answerZoneHtml}
+        ${confirmHtml}
         ${feedbackHtml}
         ${rationaleHtml}
       </div>
       <div class="bottom-row">
-        <span class="hint-text">${q.has_choices ? "Click an answer choice above" : existingAnswer ? "" : "Type your answer and check"}</span>
+        <span class="hint-text">${q.has_choices ? (existingAnswer ? "" : "Select an answer choice, then confirm") : existingAnswer ? "" : "Type your answer and check"}</span>
         <button class="next-btn" id="nextBtn" ${state.index === state.filtered.length - 1 ? "disabled" : ""}>
           Next question →
         </button>
@@ -817,17 +826,32 @@
 
     if (existingAnswer && q.has_choices) {
       lockChoiceHits(q, existingAnswer);
-    } else if (q.has_choices && overlayComplete) {
-      els.questionCol.querySelectorAll(".choice-hit").forEach((hit) => {
-        hit.addEventListener("click", () =>
-          answerChoice(q, hit.dataset.letter),
+    } else if (q.has_choices) {
+      // Selecting a choice only highlights it; nothing is submitted until
+      // the person presses "Confirm answer".
+      let pendingLetter = null;
+      const confirmBtn = document.getElementById("confirmBtn");
+      const confirmLabel = document.getElementById("confirmSelected");
+      const choiceEls = els.questionCol.querySelectorAll(
+        overlayComplete ? ".choice-hit" : ".fallback-btn",
+      );
+
+      const setPending = (letter) => {
+        pendingLetter = pendingLetter === letter ? null : letter; // click again to deselect
+        choiceEls.forEach((el) =>
+          el.classList.toggle("picked", el.dataset.letter === pendingLetter),
         );
-      });
-    } else if (q.has_choices && !overlayComplete) {
-      els.questionCol.querySelectorAll(".fallback-btn").forEach((btn) => {
-        btn.addEventListener("click", () =>
-          answerChoice(q, btn.dataset.letter),
-        );
+        confirmBtn.disabled = !pendingLetter;
+        confirmLabel.textContent = pendingLetter
+          ? `Selected: ${pendingLetter}`
+          : "No choice selected";
+      };
+
+      choiceEls.forEach((el) =>
+        el.addEventListener("click", () => setPending(el.dataset.letter)),
+      );
+      confirmBtn.addEventListener("click", () => {
+        if (pendingLetter) answerChoice(q, pendingLetter);
       });
     }
 
