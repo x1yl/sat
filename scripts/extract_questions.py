@@ -48,7 +48,7 @@ PAGE_H_PT = 792
 PAGE_H_PX = int(PAGE_H_PT * SCALE)
 MARGIN_PX = 14
 
-WORK_DIR = r"C:\Users\kevin\Downloads\sat\scripts"
+WORK_DIR = "/home/kevin/Downloads/sat/scripts"
 OUT_IMG = os.path.join(WORK_DIR, "images")
 OUT_JSON = os.path.join(WORK_DIR, "questions.json")
 os.makedirs(OUT_IMG, exist_ok=True)
@@ -383,7 +383,7 @@ def process_pdf(pdf_path, tag, id_prefix):
 
 # ---- Configure your inputs/outputs here ----
 PDF_SOURCES = [
-    (r"C:\Users\kevin\Downloads\sat\scripts\sat-english-active.pdf", "english", "E"),
+    ("/home/kevin/Downloads/sat/scripts/new-sat-math.pdf", "math", "M"),
 ]
 
 if __name__ == "__main__":

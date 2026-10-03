@@ -22,11 +22,13 @@ Requires: Pillow.
 import json, os, glob, re, shutil
 from PIL import Image
 
-WORK_DIR = r"C:\Users\kevin\Downloads\sat\scripts"
+WORK_DIR = "/home/kevin/Downloads/sat/scripts"
+
 SRC_IMG_DIR = os.path.join(WORK_DIR, "images")
 SRC_JSON = os.path.join(WORK_DIR, "questions.json")
 
-SITE_DIR = r"C:\Users\kevin\Downloads\sat"
+SITE_DIR = "/home/kevin/Downloads/sat"
+
 DST_IMG_DIR = os.path.join(SITE_DIR, "images")
 DST_DATA_JS = os.path.join(SITE_DIR, "english.js")
 
