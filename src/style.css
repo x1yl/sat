@@ -150,6 +150,9 @@ input::placeholder {
 .app.sidebar-collapsed .sidebar {
   display: none;
 }
+.app.sidebar-collapsed .mobile-toggle {
+  display: inline-block;
+}
 .sidebar-header {
   display: flex;
   gap: 6px;

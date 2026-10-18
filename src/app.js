@@ -505,7 +505,11 @@
       const text = await file.text();
       const imported = JSON.parse(text);
 
-      if (!imported || typeof imported !== "object" || Array.isArray(imported)) {
+      if (
+        !imported ||
+        typeof imported !== "object" ||
+        Array.isArray(imported)
+      ) {
         throw new Error("Imported file is not a valid settings object.");
       }
 
@@ -1113,6 +1117,11 @@
   els.excalidrawReset.addEventListener("click", resetExcalidrawPosition);
 
   function openMobileSidebar() {
+    if (state.sidebarCollapsed) {
+      state.sidebarCollapsed = false;
+      syncSidebarState();
+      return;
+    }
     els.sidebar.classList.add("open");
     els.scrim.classList.add("show");
   }

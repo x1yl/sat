@@ -149,65 +149,66 @@ def find_choice_boxes(words):
 
 def get_metadata(words):
     """Pull domain / skill / correct answer / difficulty out of a page's
-    (or combined pages') word list."""
+    (or combined pages') word list. Works for both SAT and PSAT exports
+    by locating the metadata table geometrically rather than by a fixed
+    first-cell string."""
     texts = [w["text"] for w in words]
     full_text = unicodedata.normalize("NFKC", " ".join(texts))
     domain, skill = None, None
 
-    # Find column positions from header
-    domain_col_x = None
-    skill_col_x = None
-    for i, w in enumerate(words):
+    # Column anchors + header row position from the table header words
+    domain_col_x = skill_col_x = diff_col_x = None
+    header_top = None
+    for w in words:
         if w["text"] == "Domain":
             domain_col_x = w["x0"]
+            header_top = w["top"] if header_top is None else min(header_top, w["top"])
         elif w["text"] == "Skill":
             skill_col_x = w["x0"]
+            header_top = w["top"] if header_top is None else min(header_top, w["top"])
+        elif w["text"] == "Difficulty":
+            diff_col_x = w["x0"]
 
-    # Find the data row
-    sat_idx = None
-    for i, w in enumerate(words):
-        if (
-            w["text"] == "SAT"
-            and i + 1 < len(words)
-            and words[i + 1]["text"]
-            in ["Math", "Reading", "Readingand", "Reading", "and"]
-        ):
-            sat_idx = i
-            break
+    # The navy "ID: <qid>" bar sits just below the table — cap the row
+    # there so we don't slurp up question text. Skip any "ID:" that is
+    # part of the "Question ID <hex>" page header (above the table).
+    idbar_top = None
+    if header_top is not None:
+        for i in range(len(words) - 1):
+            if (
+                words[i]["text"] == "ID:"
+                and words[i]["top"] > header_top + 2
+                and (i + 2 >= len(words) or words[i + 2]["text"] != "Answer")
+            ):
+                idbar_top = words[i]["top"]
+                break
 
-    if sat_idx is not None:
-        row_top = words[sat_idx]["top"]
-        row_words = [w for w in words if abs(w["top"] - row_top) < 3]
+    if header_top is not None:
+        row_top = header_top + 2
+        row_limit = idbar_top if idbar_top is not None else row_top + 45
+        row_words = [
+            w for w in words if row_top <= w["top"] < row_limit - 4
+        ]
 
-        # Use dynamic column positions if found, otherwise use fallback ranges
-        if domain_col_x is not None and skill_col_x is not None:
-            domain_words = [
-                w["text"]
-                for w in row_words
-                if domain_col_x - 10 <= w["x0"] < skill_col_x - 10
+        def collect(x_from, x_to):
+            picked = [
+                w
+                for w in sorted(row_words, key=lambda w: (w["top"], w["x0"]))
+                if x_from <= w["x0"] < x_to
             ]
-            skill_words = [w["text"] for w in row_words if w["x0"] >= skill_col_x - 10]
+            return " ".join(w["text"] for w in picked) or None
+
+        # Two-line cell wrapping is handled automatically: row_limit spans
+        # the whole table area, so wrapped words (e.g. "Information and\nIdeas")
+        # are picked up and ordered top-then-left.
+        if domain_col_x is not None and skill_col_x is not None:
+            domain = collect(domain_col_x - 10, skill_col_x - 10)
+            skill_hi = (diff_col_x - 10) if diff_col_x is not None else 10**6
+            skill = collect(skill_col_x - 10, skill_hi)
         else:
-            # Fallback ranges that work for both files
-            domain_words = [w["text"] for w in row_words if 200 <= w["x0"] < 380]
-            skill_words = [w["text"] for w in row_words if 380 <= w["x0"] < 500]
-
-        domain = " ".join(domain_words) if domain_words else None
-        skill = " ".join(skill_words) if skill_words else None
-
-        # Handle multi-line wrapping
-        for w in words:
-            if row_top < w["top"] < row_top + 30:
-                if domain_col_x and domain_col_x - 10 <= w["x0"] < (
-                    skill_col_x - 10 if skill_col_x else 380
-                ):
-                    domain = (domain + " " + w["text"]) if domain else w["text"]
-                elif skill_col_x and w["x0"] >= skill_col_x - 10:
-                    skill = (skill + " " + w["text"]) if skill else w["text"]
-                elif not domain_col_x and 200 <= w["x0"] < 380:
-                    domain = (domain + " " + w["text"]) if domain else w["text"]
-                elif not skill_col_x and 380 <= w["x0"] < 500:
-                    skill = (skill + " " + w["text"]) if skill else w["text"]
+            # Fallback x-ranges (tuned on the SAT exports)
+            domain = collect(200, 380)
+            skill = collect(380, 500)
 
     correct_match = re.search(r"Correct Answer:\s*(.*?)\s*Rationale", full_text)
     correct = correct_match.group(1).strip() if correct_match else None
@@ -215,7 +216,6 @@ def get_metadata(words):
     difficulty = diff_match.group(1) if diff_match else None
 
     return domain, skill, correct, difficulty
-
 
 def content_bottom_px(words, top_limit_pt=0):
     """Max bottom (in px) of words on a page at/after top_limit_pt --
@@ -383,8 +383,7 @@ def process_pdf(pdf_path, tag, id_prefix):
 
 # ---- Configure your inputs/outputs here ----
 PDF_SOURCES = [
-    ("/home/kevin/Downloads/sat/scripts/psat_english1.pdf", "psat_english1", "pE"),
-    ("/home/kevin/Downloads/sat/scripts/psat_english2.pdf", "psat_english2", "pE"),
+    ("/home/kevin/Downloads/sat/scripts/psat_english3.pdf", "psat_english3", "pE"),
 ]
 
 if __name__ == "__main__":
