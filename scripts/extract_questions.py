@@ -375,7 +375,7 @@ def process_pdf(pdf_path, tag, id_prefix):
                 }
             )
             if bi % 15 == 0:
-                _render_cache.clear()  # keep memory bounded on long runs
+                _render_cache.clear()  # keep memorfuy bounded on long runs
                 print(f"  {tag} processed {bi}/{len(blocks)}")
         _render_cache.clear()
     return results
@@ -383,7 +383,8 @@ def process_pdf(pdf_path, tag, id_prefix):
 
 # ---- Configure your inputs/outputs here ----
 PDF_SOURCES = [
-    ("/home/kevin/Downloads/sat/scripts/new-sat-math.pdf", "math", "M"),
+    ("/home/kevin/Downloads/sat/scripts/psat_english1.pdf", "psat_english1", "pE"),
+    ("/home/kevin/Downloads/sat/scripts/psat_english2.pdf", "psat_english2", "pE"),
 ]
 
 if __name__ == "__main__":

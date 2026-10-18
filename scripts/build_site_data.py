@@ -30,7 +30,7 @@ SRC_JSON = os.path.join(WORK_DIR, "questions.json")
 SITE_DIR = "/home/kevin/Downloads/sat"
 
 DST_IMG_DIR = os.path.join(SITE_DIR, "images")
-DST_DATA_JS = os.path.join(SITE_DIR, "english.js")
+DST_DATA_JS = os.path.join(SITE_DIR, "/src/psat_english.js")
 
 WEBP_QUALITY = 82
 
