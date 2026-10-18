@@ -1,5 +1,5 @@
 (function () {
-  const IMG_BASE = "images/";
+  const IMG_BASE = "../images/";
   const NATIVE_W = 1105; // width all rendered images share
 
   const DOMAIN_ORDER = [
