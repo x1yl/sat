@@ -1,5 +1,0 @@
-{
-  "scripts": {
-    "build": "node copy-images.mjs && node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').cpSync('.','dist',{recursive:true,filter:s=>!s.includes('node_modules')&&!s.includes('/dist')&&!s.endsWith('package.json')&&!s.endsWith('package-lock.json')&&!s.endsWith('copy-images.mjs')})\""
-  }
-}
