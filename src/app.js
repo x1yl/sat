@@ -1190,22 +1190,7 @@
     if (!switcher) return;
 
     switcher.addEventListener("click", function () {
-      const currentPath = window.location.pathname;
-      const currentFile = currentPath.split("/").pop() || "index.html";
-
-      let targetPage = "";
-
-      if (currentFile.includes("psat_english")) {
-        targetPage = "math.html";
-      } else if (currentFile.includes("english")) {
-        targetPage = "psat_math.html";
-      } else if (currentFile.includes("psat_math")) {
-        targetPage = "psat_english.html";
-      } else {
-        targetPage = "english.html";
-      }
-
-      window.location.href = targetPage;
+      window.location.href = "index.html"; // Redirect to the target page
     });
   }
 

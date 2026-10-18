@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SAT Practice</title>
+    <meta
+      name="description"
+      content="SAT and PSAT practice — College Board question bank with answer sheets, Desmos, and score tracking."
+    />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("kz-theme");
+          var d = t
+            ? t === "dark"
+            : matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.dataset.theme = d ? "dark" : "light";
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .landing {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+      }
+      .hero {
+        text-align: center;
+        margin: 40px 0 44px;
+      }
+      .hero .eyebrow {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      .hero h1 {
+        font-family: "Fraunces", Georgia, serif;
+        font-size: 42px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        margin: 10px 0 8px;
+      }
+      .hero p {
+        color: var(--ink-soft);
+        font-size: 15px;
+        margin: 0;
+      }
+      .pick {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 14px;
+      }
+      .pick a {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: var(--surface);
+        border: 1.5px solid var(--ink);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 5px 5px 0 color-mix(in srgb, var(--ink) 80%, transparent);
+        transition:
+          transform 0.14s ease,
+          box-shadow 0.14s ease;
+      }
+      .pick a:hover {
+        transform: translate(-3px, -3px);
+        box-shadow: 8px 8px 0 color-mix(in srgb, var(--brand) 50%, transparent);
+        border-color: var(--brand);
+      }
+      .pick .tag {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--brand);
+      }
+      .pick h2 {
+        font-family: "Fraunces", Georgia, serif;
+        font-size: 22px;
+        margin: 6px 0 6px;
+      }
+      .pick p {
+        margin: 0 0 12px;
+        color: var(--ink-soft);
+        font-size: 13.5px;
+      }
+      .pick .count {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--ink-soft);
+      }
+      .note {
+        text-align: center;
+        color: var(--ink-soft);
+        font-size: 12.5px;
+        margin-top: 34px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <main class="main" style="min-height: 100vh">
+        <div class="topbar" style="position: static">
+          <div class="topbar-meta">
+            <div class="topbar-crumb">SAT &amp; PSAT Practice</div>
+          </div>
+          <button
+            class="theme-toggle"
+            id="themeToggle"
+            type="button"
+            aria-label="Toggle theme"
+          >
+            🌙
+          </button>
+        </div>
+
+        <div class="landing">
+          <div class="hero">
+            <div class="eyebrow">College Board Question Bank</div>
+            <h1>Pick a section.</h1>
+            <p>
+              Every question with its answer and rationale, plus Desmos, a
+              reference sheet, and score tracking.
+            </p>
+          </div>
+
+          <div class="pick">
+            <a href="math.html">
+              <div class="tag">SAT</div>
+              <h2>Math</h2>
+              <p>
+                Algebra, advanced math, geometry &amp; trig — multiple choice
+                and student-produced responses.
+              </p>
+              <div class="count" data-bank="math.js">…</div>
+            </a>
+            <a href="english.html">
+              <div class="tag">SAT</div>
+              <h2>English</h2>
+              <p>
+                Reading and writing: central ideas, craft &amp; structure,
+                expression of ideas, conventions.
+              </p>
+              <div class="count" data-bank="english.js">…</div>
+            </a>
+            <a href="psat_math.html">
+              <div class="tag">PSAT</div>
+              <h2>Math</h2>
+              <p>
+                The same skills at PSAT difficulty — great warm-up before the
+                real thing.
+              </p>
+              <div class="count" data-bank="src/psat_math.js">…</div>
+            </a>
+            <a href="psat_english.html">
+              <div class="tag">PSAT</div>
+              <h2>English</h2>
+              <p>
+                Reading and writing practice from the PSAT/NMSQT &amp; PSAT 10
+                question bank.
+              </p>
+              <div class="count" data-bank="src/psat_english.js">…</div>
+            </a>
+          </div>
+
+          <p class="note">
+            Progress is saved per section in your browser. Import/export
+            settings from any section's sidebar.
+          </p>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      // theme toggle
+      (function () {
+        var b = document.getElementById("themeToggle");
+        function paint() {
+          b.textContent =
+            document.documentElement.dataset.theme === "dark" ? "☀️" : "🌙";
+        }
+        b.addEventListener("click", function () {
+          var next =
+            document.documentElement.dataset.theme === "dark"
+              ? "light"
+              : "dark";
+          document.documentElement.dataset.theme = next;
+          try {
+            localStorage.setItem("kz-theme", next);
+          } catch (e) {}
+          paint();
+        });
+        paint();
+      })();
+
+      // live question counts per bank (count uid occurrences without executing the file)
+      document.querySelectorAll(".count").forEach(function (el) {
+        fetch(el.dataset.bank)
+          .then(function (r) {
+            return r.ok ? r.text() : null;
+          })
+          .then(function (t) {
+            if (!t) return;
+            var n = (t.match(/(?:\"uid\"|uid)\s*:/g) || []).length;
+            el.textContent = n + " questions";
+          })
+          .catch(function () {
+            el.textContent = "";
+          });
+      });
+    </script>
+  </body>
+</html>

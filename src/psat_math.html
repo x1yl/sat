@@ -8,7 +8,9 @@
       (function () {
         try {
           var t = localStorage.getItem("kz-theme");
-          var d = t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+          var d = t
+            ? t === "dark"
+            : matchMedia("(prefers-color-scheme: dark)").matches;
           document.documentElement.dataset.theme = d ? "dark" : "light";
         } catch (e) {}
       })();
@@ -118,9 +120,9 @@
             class="section-switcher"
             id="sectionSwitcher"
             type="button"
-            aria-label="Switch between SAT Math and SAT English"
+            aria-label="Return to home page"
           >
-            Switch to PSAT English
+            Home
           </button>
           <button
             class="sidebar-toggle"
@@ -161,9 +163,7 @@
         <div>
           <div class="section-label">Status</div>
           <div class="status-toggle-group">
-            <button class="status-pill" data-status="active">
-              Active
-            </button>
+            <button class="status-pill" data-status="active">Active</button>
             <button class="status-pill" data-status="inactive">Inactive</button>
             <button class="status-pill active" data-status="all">All</button>
           </div>
@@ -181,7 +181,7 @@
             Import settings
           </button>
         </div>
-        
+
         <div
           style="flex: 1; display: flex; flex-direction: column; min-height: 0"
         >
@@ -201,7 +201,42 @@
             </button>
           </div>
           <span class="diff-tag" id="diffTag">—</span>
-          <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"><svg class="ic-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="ic-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></button>
+          <button
+            class="theme-toggle"
+            id="themeToggle"
+            type="button"
+            aria-label="Toggle theme"
+          >
+            <svg
+              class="ic-moon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg
+            ><svg
+              class="ic-sun"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="display: none"
+            >
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
+              />
+            </svg>
+          </button>
           <div class="nav-btns">
             <button class="nav-btn" id="prevBtn" title="Previous">←</button>
             <button class="nav-btn" id="nextBtnTop" title="Next">→</button>
@@ -312,7 +347,7 @@
 
     <script src="psat_math.js"></script>
     <script src="app.js"></script>
-      <script>
+    <script>
       (function () {
         var b = document.getElementById("themeToggle");
         function paint() {
@@ -321,9 +356,14 @@
           b.querySelector(".ic-sun").style.display = d ? "block" : "none";
         }
         b.addEventListener("click", function () {
-          var next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+          var next =
+            document.documentElement.dataset.theme === "dark"
+              ? "light"
+              : "dark";
           document.documentElement.dataset.theme = next;
-          try { localStorage.setItem("kz-theme", next); } catch (e) {}
+          try {
+            localStorage.setItem("kz-theme", next);
+          } catch (e) {}
           paint();
         });
         paint();
